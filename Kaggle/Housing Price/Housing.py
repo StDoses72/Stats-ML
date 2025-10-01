@@ -1,9 +1,14 @@
 import os
 import pandas as pd
+import numpy as np
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import train_test_split
+
+#What need to do in the future: OOF for neighborhood and landslope, smoothing for landslope
+
+
 
 def main():
     #import file
@@ -11,6 +16,9 @@ def main():
     housingTestDataFile = r'D:\Kaggle\Housing\test.csv'
     trainData = pd.read_csv(housingTrainDataFile)
     testData = pd.read_csv(housingTestDataFile)
+
+    #取saleprice对数来帮助运算
+    trainData['logPrice'] = np.log(trainData['SalePrice'])
     
     #Chaning Zoning Area from word into value
     MSZoningMap = {'A':0,'C (all)':1,'FV':3,'I':4,'RH':5,'RL':6,'RP':7,'RM':8}
@@ -31,9 +39,27 @@ def main():
     testData['isRegularShape'] = 0
     trainData.loc[trainData['LotShape']=='Reg','isRegularShape'] = 1
     testData.loc[testData['LotShape']=='Reg','isRegularShape'] = 1
+    
+    #LandSlope
+    trainData['slopeLogEV'] = 0.0
+    testData['slopeLogEV'] = 0.0
+    typeOfSlope = ['Gtl','Mod','Sev']
+    for slopeness in typeOfSlope:
+        medianOfSlope = np.log(trainData.loc[trainData['LandSlope']==slopeness,'logPrice'].median())
+        trainData.loc[trainData['LandSlope']==slopeness,'slopeLogEV'] = medianOfSlope
+        testData.loc[testData['LandSlope']==slopeness,'slopeLogEV'] = medianOfSlope
+
+
+
+
+
+
 
     #Neighborhood Manipulation
-    q1,q2,q3 = trainData['SalePrice'].quantile([0.25,0.5,0.75])
+    #找到quantile range，根据其分类
+    #遍历dataframe，拉出neighborhood name
+    
+    q1,q2,q3 = np.log(trainData['SalePrice'].quantile([0.25,0.5,0.75]))
     #trainData['regionMedianPrice'] = 0
     #testData['regionMedianPrice'] = 0
     trainData['typeOfNeighborhood'] = 0
@@ -43,9 +69,8 @@ def main():
         if name not in neighborhoodList:
             neighborhoodList.append(name)
     neighborhoodList.sort()
-    print(neighborhoodList)
     for name in neighborhoodList:
-        median = trainData.loc[trainData['Neighborhood'] == name,'SalePrice'].median()
+        median = np.log(trainData.loc[trainData['Neighborhood'] == name,'SalePrice'].median()) #对应neighborhood name，计算出这一neighborhood的均价并于quartile价格对比
         #trainData.loc[trainData['Neighborhood'] == name,'regionMedianPrice'] = trainData.loc[trainData['Neighborhood'] == name,'SalePrice'].median()
         if median< q1:
             trainData.loc[trainData['Neighborhood'] == name,'typeOfNeighborhood'] = 0
@@ -59,25 +84,16 @@ def main():
         else:
             trainData.loc[trainData['Neighborhood'] == name,'typeOfNeighborhood'] = 3
             testData.loc[testData['Neighborhood'] == name,'typeOfNeighborhood'] = 3
-
-    
-
-
-
-
-
-
-
-
-
     #neighhorMap = {'B':0,'C':1,'E':2,'G':3,'I':4,'M':5,'N':6,'O':7,'S':8,'T':9,'V':10}
     #trainData['NeighborhoodInNum'] = trainData['Neighborhood'].map(neighhorMap)
     #testData['NeighborhoodInNum'] = testData['Neighborhood'].map(neighhorMap)
 
+    #
+
     #Modeling
 
     y = trainData['SalePrice']
-    feature = ['MSZoningNum','LotFrontage','LotArea','StreetPaved','isRegularShape']
+    feature = ['MSZoningNum','LotFrontage','LotArea','StreetPaved','isRegularShape','typeOfNeighborhood']
     X = trainData[feature]
 
     print('It is working')
