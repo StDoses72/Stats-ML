@@ -17,6 +17,8 @@ def get_mae(maxLeafNode,train_X,val_X,train_y,val_y):
     output = model.predict(val_X)
     return mean_absolute_error(val_y,output)
 
+def ticket_number(x):
+    return x.split(' ')[-1]
 
 def main():
 
@@ -25,6 +27,8 @@ def main():
     titanicTrainData = pd.read_csv(trainFilePath)
     titanicTestData = pd.read_csv(testFilePath)
     print(titanicTrainData.columns)
+
+
 
     #Change string in sex into int
     sexMap = {'male':0,'female':1}
@@ -59,12 +63,31 @@ def main():
 
 
     #Fulfilling empty space in Age with median
+    ageQ3 = titanicTrainData['Age'].quantile(0.75)
     titanicTrainData['Age'] = titanicTrainData['Age'].fillna(titanicTrainData['Age'].median())
     titanicTestData['Age'] = titanicTestData['Age'].fillna(titanicTrainData['Age'].median())
+
     titanicTrainData['is_Child'] = 0
     titanicTestData['is_Child'] = 0
+
     titanicTrainData.loc[titanicTrainData['Age']<16,'is_Child'] = 1
     titanicTestData.loc[titanicTestData['Age']<16,'is_Child'] = 1
+
+    titanicTrainData['is_Adults'] = 0
+    titanicTestData['is_Adults'] = 0
+
+    titanicTrainData.loc[(titanicTrainData['Age']<ageQ3) & (titanicTrainData['Age']>=16),'is_Adults'] = 1
+    titanicTestData.loc[(titanicTestData['Age']<ageQ3) & (titanicTrainData['Age']>=16),'is_Adults'] = 1
+
+    
+    titanicTrainData['is_Old'] = 0
+    titanicTestData['is_Old'] = 0
+    titanicTrainData.loc[(titanicTrainData['Age']>=ageQ3),'is_Old']=1
+    titanicTestData.loc[(titanicTestData['Age']>=ageQ3),'is_Old']=1
+
+
+
+
     #Transform cabin
 
 
@@ -79,6 +102,8 @@ def main():
         mean = titanicTrainData.loc[titanicTrainData['CabinSection']==cabin, 'Survived'].mean()
         titanicTrainData.loc[titanicTrainData['CabinSection']==cabin,'cabinEV']=mean
         titanicTestData.loc[titanicTestData['CabinSection']==cabin,'cabinEV']=mean
+    titanicTrainData['cabinEV'] = titanicTrainData['cabinEV'].fillna(0.0)
+    titanicTestData['cabinEV']  = titanicTestData['cabinEV'].fillna(0.0)
 
 
     #for cabin in cabinList:
@@ -95,6 +120,16 @@ def main():
     #Fill missing Fare
     titanicTrainData['Fare'].fillna(titanicTrainData['Fare'].median(),inplace=True)
     titanicTestData['Fare'].fillna(titanicTrainData['Fare'].median(),inplace=True)
+
+
+    #Dealing with ticket
+    titanicTrainData['ticketNum'] = titanicTrainData['Ticket'].apply(ticket_number)
+    titanicTestData['ticketNum'] = titanicTestData['Ticket'].apply(ticket_number)
+    titanicTrainData['ticketNum'] = pd.to_numeric(titanicTrainData['ticketNum'], errors='coerce')
+    titanicTestData['ticketNum']  = pd.to_numeric(titanicTestData['ticketNum'],  errors='coerce')
+    med = titanicTrainData['ticketNum'].median()
+    titanicTrainData['ticketNum'] = titanicTrainData['ticketNum'].fillna(med)
+    titanicTestData['ticketNum']  = titanicTestData['ticketNum'].fillna(med)
 
 
     #处理Name
@@ -132,18 +167,6 @@ def main():
 
 
     print(titanicTrainData.columns)
-    #老男没戏
-    ageQ3 = titanicTrainData['Age'].quantile(0.75)
-    titanicTrainData['isOldMale'] = 0
-    titanicTestData['isOldMale'] = 0
-    titanicTrainData.loc[(titanicTrainData['Age']>ageQ3) & (titanicTrainData['genderInNum']==0),'isOldMale']=1
-    titanicTestData.loc[(titanicTestData['Age']>ageQ3) & (titanicTestData['genderInNum']==0),'isOldMale']=1
-
-
-
-
-
-
 
 
     #Fulfill the empty part in CabinSectionIndex with the median
@@ -151,17 +174,21 @@ def main():
     #titanicTestData['CabinSectionIndex'] = titanicTestData['CabinSectionIndex'].fillna(titanicTestData['CabinSectionIndex'].median())
     #Choosing variable to use
     y = titanicTrainData['Survived']
-    feature = ['Pclass','genderInNum','embarkC','embarkQ','embarkS','Fare','Age','isAlone','cabinEV', 'is_Master','is_Miss', 'is_Mr', 'is_Mrs','is_Rare']
+    feature = ['Pclass','genderInNum','embarkC','embarkQ','embarkS','Fare','is_Child','is_Adults','is_Old','isAlone','cabinEV', 'is_Master','is_Miss', 'is_Mr', 'is_Mrs','is_Rare','ticketNum']
     X = titanicTrainData[feature]
 
 
     #Validation
     train_X,val_X,train_y,val_y=train_test_split(X,y,random_state=0)
-    for maxLeafNode in [65,66,67,68]:
-        print(maxLeafNode,get_mae(maxLeafNode,train_X,val_X,train_y,val_y))
 
 
-    
+    svm = SVC(kernel="rbf", C=1.0, gamma="scale", random_state=42)
+    svm.fit(train_X, train_y)
+
+    val_pred_svm = svm.predict(val_X)
+    print("SVM Validation Accuracy:", accuracy_score(val_y, val_pred_svm))
+
+    #logistic regression
     logreg = LogisticRegression(max_iter=1000, solver="lbfgs", random_state=42)
     logreg.fit(train_X, train_y)
     val_pred_lr = logreg.predict(val_X)
