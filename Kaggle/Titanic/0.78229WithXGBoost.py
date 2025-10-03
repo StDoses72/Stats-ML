@@ -1,6 +1,7 @@
 import os
 import re
 import pandas as pd
+import numpy as np
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -89,9 +90,6 @@ def main():
 
 
     #Transform cabin
-
-
-
     #cabinMap ={'A':0,'B':1,'C':2,'D':3,'E':4,'F':5}
     titanicTrainData['CabinSection'] = titanicTrainData['Cabin'].str[0]
     titanicTestData['CabinSection'] = titanicTestData['Cabin'].str[0]
@@ -118,8 +116,21 @@ def main():
     #titanicTestData['CabinSectionIndex'] = titanicTestData['CabinSection'].map(cabinMap)
 
     #Fill missing Fare
-    titanicTrainData['Fare'].fillna(titanicTrainData['Fare'].median(),inplace=True)
-    titanicTestData['Fare'].fillna(titanicTrainData['Fare'].median(),inplace=True)
+    titanicTrainData['Fare']= titanicTrainData['Fare'].fillna(titanicTrainData['Fare'].median())
+    titanicTestData['Fare']=titanicTestData['Fare'].fillna(titanicTrainData['Fare'].median())
+
+    titanicTrainData['logFare'] = np.log1p(titanicTrainData['Fare'])
+    titanicTestData['logFare'] = np.log1p(titanicTestData['Fare'])
+
+    titanicTrainData['logFare']=titanicTrainData['logFare'].fillna(titanicTrainData['logFare'].median())
+    titanicTestData['logFare']=titanicTestData['logFare'].fillna(titanicTrainData['logFare'].median())
+
+
+
+
+
+
+
 
 
     #Dealing with ticket
@@ -174,7 +185,7 @@ def main():
     #titanicTestData['CabinSectionIndex'] = titanicTestData['CabinSectionIndex'].fillna(titanicTestData['CabinSectionIndex'].median())
     #Choosing variable to use
     y = titanicTrainData['Survived']
-    feature = ['Pclass','genderInNum','embarkC','embarkQ','embarkS','Fare','is_Child','is_Adults','is_Old','isAlone','cabinEV', 'is_Master','is_Miss', 'is_Mr', 'is_Mrs','is_Rare','ticketNum']
+    feature = ['Pclass','genderInNum','embarkC','embarkQ','embarkS','logFare','is_Child','is_Adults','is_Old','isAlone','cabinEV', 'is_Master','is_Miss', 'is_Mr', 'is_Mrs','is_Rare','ticketNum']
     X = titanicTrainData[feature]
 
 
@@ -195,20 +206,23 @@ def main():
     print("LogReg Validation Accuracy:", accuracy_score(val_y, val_pred_lr))
 
     # ===== Random Forest（保留原来）=====
-    rf = RandomForestClassifier(random_state=42)
+    rf = RandomForestClassifier(n_estimators=350,
+                                max_depth=15,
+                                min_samples_leaf=1,
+                                random_state=42)
     rf.fit(train_X, train_y)
     val_pred_rf = rf.predict(val_X)
     print("RandomForest Validation Accuracy:", accuracy_score(val_y, val_pred_rf))
 
     #Xgboost
     xgb = XGBClassifier(
-        n_estimators=500,
+        n_estimators=200,
         max_depth=4,
-        learning_rate=0.05,
+        learning_rate=0.09,
         subsample=0.8,
         colsample_bytree=0.8,
         random_state=42,
-        eval_metric="logloss"
+        eval_metric="logloss",
     )
 
     xgb.fit(train_X, train_y)
