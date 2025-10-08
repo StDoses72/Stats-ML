@@ -20,14 +20,21 @@ def main():
     #取saleprice对数来帮助运算
     trainData['logPrice'] = np.log(trainData['SalePrice'])
     
+    
+    #BldgType is highly related with MSSubClass, so only use one of them
+    trainData = pd.get_dummies(trainData,columns=['BldgType'],prefix='is')
+    print(trainData.columns)
     #Chaning Zoning Area from word into value
     MSZoningMap = {'A':0,'C (all)':1,'FV':3,'I':4,'RH':5,'RL':6,'RP':7,'RM':8}
     trainData['MSZoningNum']=trainData['MSZoning'].map(MSZoningMap)
     testData['MSZoningNum']=testData['MSZoning'].map(MSZoningMap)
+    trainData = pd.get_dummies(trainData,columns=['MSZoning'],prefix = 'is')
+    testData = pd.get_dummies(testData,columns=['MSZoning'],prefix='is')
+    print(trainData.columns)
 
     #Filling LotFrontage Missing part
-    trainData['LotFrontage'] = trainData['LotFrontage'].fillna(trainData['LotFrontage'].median)
-    testData['LotFrontage'] = testData['LotFrontage'].fillna(trainData['LotFrontage'].median)
+    trainData['LotFrontage'] = trainData['LotFrontage'].fillna(trainData['LotFrontage'].median())
+    testData['LotFrontage'] = testData['LotFrontage'].fillna(trainData['LotFrontage'].median())
 
     #Chaning Street paved or not
     pavedMap = {'Pave':1,'Grvl':0}
@@ -48,12 +55,6 @@ def main():
         medianOfSlope = np.log(trainData.loc[trainData['LandSlope']==slopeness,'logPrice'].median())
         trainData.loc[trainData['LandSlope']==slopeness,'slopeLogEV'] = medianOfSlope
         testData.loc[testData['LandSlope']==slopeness,'slopeLogEV'] = medianOfSlope
-
-
-
-
-
-
 
     #Neighborhood Manipulation
     #找到quantile range，根据其分类
@@ -88,13 +89,12 @@ def main():
     #trainData['NeighborhoodInNum'] = trainData['Neighborhood'].map(neighhorMap)
     #testData['NeighborhoodInNum'] = testData['Neighborhood'].map(neighhorMap)
 
-    #
+    
 
     #Modeling
 
-    y = trainData['SalePrice']
-    feature = ['MSZoningNum','LotFrontage','LotArea','StreetPaved','isRegularShape','typeOfNeighborhood']
+    y = trainData['logPrice']
+    feature = ['is_1Fam', 'is_2fmCon', 'is_Duplex', 'is_Twnhs', 'is_TwnhsE','is_C (all)','is_FV','is_RH','is_RL','is_RM','LotFrontage','LotArea','StreetPaved','isRegularShape','typeOfNeighborhood','slopeLogEV',]
     X = trainData[feature]
 
     print('It is working')
-main()
